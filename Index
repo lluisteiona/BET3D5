@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BET3D5 — Apostes Castelleres</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@300;400;500;600;700&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, doc, updateDoc, deleteDoc, onSnapshot, serverTimestamp }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  // =============================================
+  // CONFIGURACIÓ FIREBASE — EDITA AQUÍ
+  // =============================================
+  const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT.firebaseapp.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
+  };
+  // =============================================
+
+  try {
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    window._db = db;
+    window._fs = { collection, addDoc, doc, updateDoc, deleteDoc, onSnapshot, serverTimestamp };
+    window._firebaseReady = true;
+  } catch(e) {
+    window._firebaseReady = false;
+    console.warn("Firebase no configurat, mode local:", e.message);
+  }
+</script>
+
+<style>
+:root {
+  --bg:#0a0e17; --bg2:#0f1520; --bg3:#151d2e;
+  --border:#1e2d45; --accent:#f5a623; --accent2:#e8891a;
+  --green:#1db954; --red:#e63946; --blue:#2196f3;
+  --text:#e8eaf0; --text2:#8a9bb5; --gold:#ffd700;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+
+/* HEADER */
+header{background:var(--bg2);border-bottom:2px solid var(--accent);padding:0 20px;display:flex;align-items:center;justify-content:space-between;height:60px;position:sticky;top:0;z-index:100;box-shadow:0 4px 20px rgba(0,0,0,.5);}
+.logo{font-family:'Bebas Neue',sans-serif;font-size:2rem;color:var(--accent);letter-spacing:3px;text-shadow:0 0 20px rgba(245,166,35,.4);}
+.logo span{color:var(--text);}
+.logo em{color:var(--green);font-style:normal;font-size:.9rem;margin-left:8px;vertical-align:middle;}
+.nav-btns{display:flex;gap:10px;align-items:center;}
+.fbstatus{font-size:.7rem;padding:3px 8px;border-radius:12px;background:rgba(255,0,0,.1);color:#ff6b6b;}
+.fbstatus.ok{background:rgba(29,185,84,.1);color:var(--green);}
+
+/* BUTTONS */
+.btn{padding:8px 16px;border-radius:4px;border:none;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-size:.95rem;font-weight:600;letter-spacing:.5px;transition:all .2s;}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text2);}
+.btn-outline:hover{border-color:var(--accent);color:var(--accent);}
+.btn-gold{background:var(--accent);color:#000;}
+.btn-gold:hover{background:var(--accent2);}
+.btn-green{background:var(--green);color:#000;}
+.btn-green:hover{background:#17a347;}
+.btn-red{background:var(--red);color:#fff;}
+.btn-red:hover{background:#c73040;}
+.btn-sm{padding:5px 10px;font-size:.8rem;}
+
+/* LAYOUT */
+.container{max-width:1400px;margin:0 auto;padding:20px;}
+.main-grid{display:grid;grid-template-columns:1fr 340px;gap:20px;}
+@media(max-width:900px){.main-grid{grid-template-columns:1fr;}}
+
+/* BETSLIP */
+.betslip{background:var(--bg2);border:1px solid var(--border);border-radius:8px;position:sticky;top:80px;max-height:calc(100vh - 100px);overflow-y:auto;display:flex;flex-direction:column;}
+.bs-header{background:var(--accent);padding:12px 16px;font-family:'Bebas Neue',sans-serif;font-size:1.2rem;color:#000;letter-spacing:2px;display:flex;justify-content:space-between;align-items:center;}
+.bs-count{background:#000;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:.85rem;}
+.bs-body{padding:12px;flex:1;}
+.bs-empty{text-align:center;padding:30px 10px;color:var(--text2);font-size:.9rem;}
+.bs-item{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-bottom:8px;position:relative;}
+.bs-item-title{font-weight:600;font-size:.85rem;margin-bottom:2px;}
+.bs-item-sub{font-size:.75rem;color:var(--text2);}
+.bs-item-odds{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--accent);}
+.bs-remove{position:absolute;top:8px;right:8px;background:none;border:none;color:var(--text2);cursor:pointer;font-size:1rem;}
+.bs-remove:hover{color:var(--red);}
+.bs-total{border-top:1px solid var(--border);padding:12px;}
+.bs-row{display:flex;justify-content:space-between;margin-bottom:6px;font-size:.85rem;}
+.bs-row.big{font-size:1rem;font-weight:700;}
+.stake-input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:8px 12px;color:var(--text);font-family:'Barlow',sans-serif;font-size:1rem;margin:8px 0;}
+.stake-input:focus{outline:none;border-color:var(--accent);}
+.quick-stakes{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
+.qs{background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:.8rem;transition:all .15s;}
+.qs:hover{border-color:var(--accent);color:var(--accent);}
+
+/* SECTION */
+.section-title{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:2px;color:var(--accent);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border);}
+
+/* DIADA CARD */
+.diada-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;margin-bottom:20px;overflow:hidden;}
+.diada-hdr{background:linear-gradient(135deg,var(--bg3) 0%,#1a2540 100%);padding:16px 20px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);}
+.diada-name{font-family:'Bebas Neue',sans-serif;font-size:1.5rem;letter-spacing:2px;}
+.diada-date{color:var(--text2);font-size:.85rem;}
+.diada-badge{background:var(--green);color:#000;padding:3px 10px;border-radius:12px;font-family:'Barlow Condensed',sans-serif;font-size:.8rem;font-weight:700;text-transform:uppercase;}
+
+/* COLLA TABS */
+.colla-section{padding:16px 20px;}
+.colla-tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+.ctab{padding:6px 14px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-size:.9rem;font-weight:600;transition:all .15s;}
+.ctab.active{background:var(--accent);color:#000;border-color:var(--accent);}
+.ctab:hover:not(.active){border-color:var(--accent);color:var(--accent);}
+
+/* BET TABLE */
+.bet-table{width:100%;border-collapse:collapse;}
+.bet-table th{background:var(--bg3);padding:8px 10px;text-align:left;font-family:'Barlow Condensed',sans-serif;font-size:.8rem;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);}
+.bet-table td{padding:8px 10px;border-bottom:1px solid rgba(30,45,69,.5);}
+.bet-table tr:last-child td{border-bottom:none;}
+.bet-table tr:hover td{background:rgba(245,166,35,.04);}
+.bet-table tr.sel td{background:rgba(245,166,35,.06);}
+
+/* ODDS BUTTON */
+.odds-btn{background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:6px 14px;cursor:pointer;transition:all .15s;display:flex;flex-direction:column;align-items:center;min-width:72px;}
+.odds-btn:hover{border-color:var(--accent);background:rgba(245,166,35,.1);}
+.odds-btn.sel{background:var(--accent);border-color:var(--accent);}
+.odds-val{font-family:'Bebas Neue',sans-serif;font-size:1.3rem;color:var(--accent);line-height:1;}
+.odds-btn.sel .odds-val{color:#000;}
+.odds-lbl{font-size:.65rem;color:var(--text2);text-transform:uppercase;}
+.odds-btn.sel .odds-lbl{color:#000;opacity:.7;}
+.type-badge{font-size:.75rem;padding:2px 7px;border-radius:3px;font-weight:600;}
+.type-castell{background:rgba(245,166,35,.12);color:var(--accent);}
+.type-pilar{background:rgba(33,150,243,.15);color:var(--blue);}
+
+/* COLLA INFO BAR */
+.colla-info-bar{background:var(--bg3);border-radius:6px;padding:8px 12px;margin-bottom:12px;display:flex;gap:20px;font-size:.8rem;flex-wrap:wrap;}
+.colla-info-item{display:flex;align-items:center;gap:6px;color:var(--text2);}
+.colla-info-item strong{color:var(--text);}
+
+/* ADMIN MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.85);backdrop-filter:blur(4px);overflow-y:auto;}
+.modal-box{background:var(--bg2);border:1px solid var(--border);border-radius:12px;max-width:960px;margin:40px auto;overflow:hidden;}
+.modal-hdr{background:linear-gradient(135deg,#1a0a30,#0a1a40);border-bottom:2px solid var(--accent);padding:20px 24px;display:flex;justify-content:space-between;align-items:center;}
+.modal-title{font-family:'Bebas Neue',sans-serif;font-size:1.5rem;letter-spacing:2px;color:var(--accent);}
+.modal-body{padding:24px;}
+
+/* ADMIN TABS */
+.atabs{display:flex;gap:4px;margin-bottom:24px;border-bottom:1px solid var(--border);}
+.atab{padding:10px 20px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-size:.95rem;font-weight:600;color:var(--text2);border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;}
+.atab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.apanel{display:none;}
+.apanel.active{display:block;}
+
+/* FORM */
+.fg{margin-bottom:16px;}
+.fl{display:block;font-size:.85rem;color:var(--text2);margin-bottom:6px;font-weight:500;}
+.fi,.fsel{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:8px 12px;color:var(--text);font-family:'Barlow',sans-serif;font-size:.9rem;transition:border-color .15s;}
+.fi:focus,.fsel:focus{outline:none;border-color:var(--accent);}
+.fsel option{background:var(--bg3);}
+.frow2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.frow3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+
+/* COLLA CONFIG IN ADMIN */
+.colla-cfg-list{display:flex;flex-direction:column;gap:10px;margin-top:12px;}
+.colla-cfg-item{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px 16px;}
+.colla-cfg-top{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
+.colla-cfg-name{font-weight:700;font-size:1rem;flex:1;}
+.lsel{background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:4px 8px;font-size:.85rem;cursor:pointer;}
+.colla-cfg-row{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;}
+.colla-cfg-field{display:flex;flex-direction:column;gap:4px;}
+.colla-cfg-field label{font-size:.72rem;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;}
+.colla-cfg-field select,.colla-cfg-field input[type=number]{background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:5px 8px;font-size:.85rem;width:100%;}
+.gent-input{background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:5px 8px;font-size:.85rem;width:100%;}
+
+/* COLLA CHECKBOXES */
+.cc-grid{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px;}
+.cc-input{display:none;}
+.cc-lbl{padding:6px 14px;border-radius:4px;border:1px solid var(--border);cursor:pointer;font-size:.85rem;transition:all .15s;background:var(--bg3);}
+.cc-input:checked+.cc-lbl{background:rgba(245,166,35,.15);border-color:var(--accent);color:var(--accent);}
+
+/* DIADA ADMIN LIST */
+.dad-list{display:flex;flex-direction:column;gap:10px;}
+.dad-item{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:12px 14px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
+.dad-info{flex:1;}
+.dad-name{font-weight:600;margin-bottom:4px;}
+.dad-meta{font-size:.8rem;color:var(--text2);}
+.dad-actions{display:flex;gap:6px;flex-shrink:0;}
+
+/* PARAMS */
+.params-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.param-card{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:16px;}
+.param-lbl{font-size:.8rem;color:var(--text2);margin-bottom:6px;}
+.param-val{font-family:'Bebas Neue',sans-serif;font-size:2rem;color:var(--accent);}
+.pslider{width:100%;margin-top:8px;accent-color:var(--accent);}
+
+/* NOTIF */
+.notif{position:fixed;bottom:20px;right:20px;z-index:999;background:var(--green);color:#000;padding:12px 20px;border-radius:6px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:1rem;transform:translateY(120px);transition:transform .3s;max-width:320px;box-shadow:0 4px 16px rgba(0,0,0,.4);}
+.notif.err{background:var(--red);color:#fff;}
+.notif.show{transform:translateY(0);}
+
+/* LOADER */
+.loader{text-align:center;padding:40px;color:var(--text2);}
+.spin{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 10px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+</style>
+</head>
+<body>
+
+<div class="notif" id="notif"></div>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">BET<span>3</span>D<span>5</span><em>🏰 Apostes Castelleres</em></div>
+  <div class="nav-btns">
+    <span class="fbstatus" id="fbStatus">● Local</span>
+    <button class="btn btn-outline" onclick="showMyBets()">Les meves apostes</button>
+    <button class="btn btn-gold" onclick="openAdmin()">🔐 Admin</button>
+  </div>
+</header>
+
+<!-- MAIN -->
+<div class="container">
+  <div class="main-grid">
+    <div>
+      <div class="section-title">🏛️ DIADES DISPONIBLES</div>
+      <div id="diadesContainer"><div class="loader"><div class="spin"></div>Carregant...</div></div>
+    </div>
+    <div>
+      <div class="betslip">
+        <div class="bs-header">
+          <span>🎯 APOSTES</span>
+          <span class="bs-count" id="bsCount">0</span>
+        </div>
+        <div class="bs-body" id="bsBody">
+          <div class="bs-empty">Selecciona quotes per apostar</div>
+        </div>
+        <div class="bs-total" id="bsTotal" style="display:none">
+          <div class="bs-row"><span>Quota total</span><span id="totalOdds" style="color:var(--accent);font-weight:700;">1.00</span></div>
+          <input class="stake-input" type="number" id="stakeInput" placeholder="Import (€)" min="1" value="10" oninput="updatePotential()">
+          <div class="quick-stakes">
+            <button class="qs" onclick="setStake(5)">5€</button>
+            <button class="qs" onclick="setStake(10)">10€</button>
+            <button class="qs" onclick="setStake(25)">25€</button>
+            <button class="qs" onclick="setStake(50)">50€</button>
+          </div>
+          <div class="bs-row big"><span>Guany potencial</span><span id="potentialWin" style="color:var(--green)">0.00€</span></div>
+          <button class="btn btn-green" style="width:100%;margin-top:8px;padding:12px;font-size:1rem;" onclick="placeBet()">💰 FER APOSTA</button>
+          <button class="btn btn-outline" style="width:100%;margin-top:6px;font-size:.85rem;" onclick="clearBetslip()">Buidar apostes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN MODAL -->
+<div class="modal-overlay" id="adminModal">
+  <div class="modal-box">
+    <div class="modal-hdr">
+      <span class="modal-title">⚙️ TAULER D'ADMINISTRADOR</span>
+      <button class="btn btn-outline" onclick="closeAdmin()">✕ Tancar</button>
+    </div>
+    <div class="modal-body">
+      <div class="atabs">
+        <button class="atab active" id="atab-crear" onclick="switchTab('crear',this)">Crear Diada</button>
+        <button class="atab" id="atab-diades" onclick="switchTab('diades',this)">Gestionar Diades</button>
+        <button class="atab" id="atab-params" onclick="switchTab('params',this)">Paràmetres Quotes</button>
+      </div>
+
+      <!-- CREAR DIADA -->
+      <div class="apanel active" id="apanel-crear">
+        <div class="frow2">
+          <div class="fg"><label class="fl">Nom de la Diada</label><input class="fi" id="fNom" placeholder="Ex: Diada de Sant Fèlix 2025"></div>
+          <div class="fg"><label class="fl">Data</label><input class="fi" type="date" id="fData"></div>
+        </div>
+        <div class="fg"><label class="fl">Lloc</label><input class="fi" id="fLloc" placeholder="Ex: Vilafranca del Penedès"></div>
+
+        <div class="fg">
+          <label class="fl">Colles participants <span style="color:var(--text2);font-weight:400;">(selecciona les que hi participen)</span></label>
+          <div class="cc-grid" id="ccGrid"></div>
+        </div>
+
+        <div id="collesConfig"></div>
+
+        <button class="btn btn-green" style="padding:12px 32px;margin-top:8px;" onclick="crearDiada()">✅ Crear Diada</button>
+      </div>
+
+      <!-- GESTIONAR DIADES -->
+      <div class="apanel" id="apanel-diades">
+        <div id="dadList"><div class="loader"><div class="spin"></div></div></div>
+      </div>
+
+      <!-- PARÀMETRES -->
+      <div class="apanel" id="apanel-params">
+        <p style="color:var(--text2);margin-bottom:20px;font-size:.9rem;">Paràmetres globals que afecten el càlcul de totes les quotes.</p>
+        <div class="params-grid">
+          <div class="param-card">
+            <div class="param-lbl">Marge de la casa (%)</div>
+            <div class="param-val" id="pMargeVal">8%</div>
+            <input type="range" class="pslider" min="2" max="20" value="8"
+              oninput="gP.marge=this.value/100;document.getElementById('pMargeVal').textContent=this.value+'%';saveParams();">
+          </div>
+          <div class="param-card">
+            <div class="param-lbl">Factor ajust nivell (±%)</div>
+            <div class="param-val" id="pNivellVal">20%</div>
+            <input type="range" class="pslider" min="5" max="50" value="20"
+              oninput="gP.nivellFactor=this.value/100;document.getElementById('pNivellVal').textContent=this.value+'%';saveParams();">
+          </div>
+          <div class="param-card">
+            <div class="param-lbl">Quotes mínimes</div>
+            <div class="param-val" id="pQMinVal">1.05</div>
+            <input type="range" class="pslider" min="101" max="130" value="105"
+              oninput="gP.quotaMin=this.value/100;document.getElementById('pQMinVal').textContent=(this.value/100).toFixed(2);saveParams();">
+          </div>
+          <div class="param-card">
+            <div class="param-lbl">Quotes màximes</div>
+            <div class="param-val" id="pQMaxVal">50.00</div>
+            <input type="range" class="pslider" min="1000" max="10000" value="5000"
+              oninput="gP.quotaMax=this.value/100;document.getElementById('pQMaxVal').textContent=(this.value/100).toFixed(2);saveParams();">
+          </div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:14px;margin-top:16px;font-size:.82rem;color:var(--text2);line-height:1.6;">
+          💡 <strong style="color:var(--text);">Com funcionen les quotes:</strong> Cada colla té probabilitats baseades en l'historial (Excel).
+          El <em>nivell per diada</em> (1-5) ajusta aquestes probabilitats ±Factor. La <em>gent prevista per colla</em>
+          és informativa però no afecta el càlcul (la pressió és interna). El <em>marge de la casa</em> redueix
+          les quotes netes per assegurar el benefici de la casa.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT DIADA MODAL -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal-box" style="max-width:700px;">
+    <div class="modal-hdr">
+      <span class="modal-title">✏️ EDITAR DIADA</span>
+      <button class="btn btn-outline" onclick="closeEdit()">✕</button>
+    </div>
+    <div class="modal-body" id="editBody"></div>
+  </div>
+</div>
+
+<!-- MY BETS MODAL -->
+<div class="modal-overlay" id="myBetsModal">
+  <div class="modal-box" style="max-width:700px;">
+    <div class="modal-hdr">
+      <span class="modal-title">📋 LES MEVES APOSTES</span>
+      <button class="btn btn-outline" onclick="document.getElementById('myBetsModal').style.display='none'">✕</button>
+    </div>
+    <div class="modal-body" id="myBetsBody"></div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+// DADES EXCEL — PROBABILITATS PER COLLA I CASTELL
+// Font: full "NIVELL COLLA" de l'Excel
+// Representa P(colla aconsegueix >= aquest castell)
+// ─────────────────────────────────────────────
+
+const COLLES = ['Arreplegats','Pataquers','Bergants','Xoriguers','Ganàpies','Marracos','Trempats','Passarells','Emboirats','Engrescats','Penjats','Descargolats','Llunatics','Grillats','Gambirots'];
+
+const COLLA_PROBS = {
+  'Arreplegats': {pd3:0.9545,pd3ps:0.9540,'3d5':0.9533,'4d5':0.9531,td5:0.9521,'3d5a':0.9508,'4d5a':0.9505,'5d5':0.9501,pd4ps:0.9460,'3d5ps':0.9453,td5ps:0.9446,'7d5':0.9409,'9d5':0.9320,'4d6':0.9286,'3d6':0.9268,'3d6a':0.9164,'4d6a':0.9134,'5d6':0.8971,'5d6mg':0.8948,'7d6':0.8936,td6:0.8761,'5d6a':0.8925,'10d6':0.8694,'9d6':0.8639,'3d6ps':0.8205,'4d6ps':0.8137,td6ps:0.8102,pd5:0.7996,'4d7':0.7923,'3d7':0.7555,'4d7a':0.6248,'7d7':0.5496,pd5ps:0.5009,td7f:0.4343,'3d7a':0.4217,pd6f:0.4016,'10d7':0.1963,'7d7mg':0.1909,'5d7':0.1875,'5d7mg':0.1414,'5d7a':0.1195,'4d8f':0.1132,'3d8f':0.1036,'4d7ps':0.0497,'3d7ps':0.0263,'9d7':0.0191,'4d8':0.0153,pd7fm:0.0065,td8fm:0.0030,td7sf:0.0005,'4d8fa':0.0002,'3d8fa':0.0002,'7d8':0.0001,'3d8sf':0.000002,pd6sf:0.0000004},
+  'Pataquers':   {pd3:0.9056,pd3ps:0.9044,'3d5':0.9031,'4d5':0.9026,td5:0.9006,'3d5a':0.8980,'4d5a':0.8974,'5d5':0.8966,pd4ps:0.8885,'3d5ps':0.8871,td5ps:0.8856,'7d5':0.8783,'9d5':0.8612,'4d6':0.8545,'3d6':0.8511,'3d6a':0.8315,'4d6a':0.8258,'5d6':0.7959,'5d6mg':0.7917,'7d6':0.7896,td6:0.7585,'5d6a':0.7875,'10d6':0.7469,'9d6':0.7374,'3d6ps':0.6659,'4d6ps':0.6550,td6ps:0.6496,pd5:0.6330,'4d7':0.6219,'3d7':0.5675,'4d7a':0.3982,'7d7':0.3158,pd5ps:0.2677,td7f:0.2085,'3d7a':0.1980,pd6f:0.1820,'10d7':0.0546,'7d7mg':0.0522,'5d7':0.0507,'5d7mg':0.0320,'5d7a':0.0244,'4d8f':0.0223,'3d8f':0.0194,'4d7ps':0.0060,'3d7ps':0.0022,'9d7':0.0014,'4d8':0.0010,pd7fm:0.0003,td8fm:0.0001},
+  'Bergants':    {pd3:0.9155,pd3ps:0.9142,'3d5':0.9128,'4d5':0.9122,td5:0.9100,'3d5a':0.9071,'4d5a':0.9065,'5d5':0.9056,pd4ps:0.8964,'3d5ps':0.8948,td5ps:0.8932,'7d5':0.8849,'9d5':0.8650,'4d6':0.8573,'3d6':0.8533,'3d6a':0.8299,'4d6a':0.8232,'5d6':0.7869,'5d6mg':0.7817,'7d6':0.7791,td6:0.7410,'5d6a':0.7765,'10d6':0.7265,'9d6':0.7147,'3d6ps':0.6259,'4d6ps':0.6125,td6ps:0.6058,pd5:0.5854,'4d7':0.5716,'3d7':0.5054,'4d7a':0.3099,'7d7':0.2237,pd5ps:0.1770,td7f:0.1240,'3d7a':0.1152,pd6f:0.1021,'10d7':0.0181,'7d7mg':0.0169,'5d7':0.0162,'5d7mg':0.0083,'5d7a':0.0056,'4d8f':0.0050,'3d8f':0.0040},
+  'Xoriguers':   {pd3:0.8784,pd3ps:0.8759,'3d5':0.8734,'4d5':0.8724,td5:0.8682,'3d5a':0.8630,'4d5a':0.8619,'5d5':0.8603,pd4ps:0.8433,'3d5ps':0.8404,td5ps:0.8374,'7d5':0.8220,'9d5':0.7848,'4d6':0.7703,'3d6':0.7628,'3d6a':0.7194,'4d6a':0.7070,'5d6':0.6411,'5d6mg':0.6320,'7d6':0.6274,td6:0.5612,'5d6a':0.6227,'10d6':0.5370,'9d6':0.5176,'3d6ps':0.3830,'4d6ps':0.3645,td6ps:0.3554,pd5:0.3285,'4d7':0.3111,'3d7':0.2343,'4d7a':0.0760,'7d7':0.0360,pd5ps:0.0211,td7f:0.0094,'3d7a':0.0080,pd6f:0.0061,'10d7':0.0001,'7d7mg':0.0001,'5d7':0.0001},
+  'Ganàpies':    {pd3:0.9249,pd3ps:0.9234,'3d5':0.9220,'4d5':0.9214,td5:0.9190,'3d5a':0.9159,'4d5a':0.9153,'5d5':0.9144,pd4ps:0.9045,'3d5ps':0.9028,td5ps:0.9010,'7d5':0.8920,'9d5':0.8700,'4d6':0.8613,'3d6':0.8568,'3d6a':0.8302,'4d6a':0.8225,'5d6':0.7805,'5d6mg':0.7745,'7d6':0.7715,td6:0.7266,'5d6a':0.7684,'10d6':0.7096,'9d6':0.6957,'3d6ps':0.5910,'4d6ps':0.5752,td6ps:0.5673,pd5:0.5435,'4d7':0.5275,'3d7':0.4513,'4d7a':0.2399,'7d7':0.1566,pd5ps:0.1151,td7f:0.0719,'3d7a':0.0652,pd6f:0.0556,'10d7':0.0056,'7d7mg':0.0051,'5d7':0.0048,'5d7mg':0.0020,'5d7a':0.0012,'4d8f':0.0010,'3d8f':0.0008},
+  'Marracos':    {pd3:0.8920,pd3ps:0.8900,'3d5':0.8881,'4d5':0.8873,td5:0.8841,'3d5a':0.8801,'4d5a':0.8792,'5d5':0.8780,pd4ps:0.8650,'3d5ps':0.8628,td5ps:0.8605,'7d5':0.8488,'9d5':0.8207,'4d6':0.8097,'3d6':0.8040,'3d6a':0.7712,'4d6a':0.7618,'5d6':0.7114,'5d6mg':0.7044,'7d6':0.7008,td6:0.6490,'5d6a':0.6972,'10d6':0.6297,'9d6':0.6141,'3d6ps':0.5007,'4d6ps':0.4843,td6ps:0.4761,pd5:0.4515,'4d7':0.4353,'3d7':0.3600,'4d7a':0.1696,'7d7':0.1030,pd5ps:0.0721,td7f:0.0420,'3d7a':0.0376,pd6f:0.0313,'10d7':0.0023,'7d7mg':0.0021,'5d7':0.0020,'5d7mg':0.0007,'5d7a':0.0004,'4d8f':0.0003,'3d8f':0.0003},
+  'Trempats':    {pd3:0.9430,pd3ps:0.9409,'3d5':0.9387,'4d5':0.9378,td5:0.9342,'3d5a':0.9294,'4d5a':0.9284,'5d5':0.9269,pd4ps:0.9105,'3d5ps':0.9075,td5ps:0.9044,'7d5':0.8880,'9d5':0.8450,'4d6':0.8270,'3d6':0.8175,'3d6a':0.7596,'4d6a':0.7423,'5d6':0.6468,'5d6mg':0.6331,'7d6':0.6263,td6:0.5265,'5d6a':0.6193,'10d6':0.4901,'9d6':0.4611,'3d6ps':0.2715,'4d6ps':0.2478,td6ps:0.2364,pd5:0.2040,'4d7':0.1840,'3d7':0.1062,'4d7a':0.0106,'7d7':0.0022,pd5ps:0.0007,td7f:0.0001,'3d7a':0.0001,pd6f:0.00005},
+  'Passarells':  {pd3:0.8283,pd3ps:0.8190,'3d5':0.8094,'4d5':0.8054,td5:0.7892,'3d5a':0.7678,'4d5a':0.7634,'5d5':0.7567,pd4ps:0.6844,'3d5ps':0.6715,td5ps:0.6584,'7d5':0.5903,'9d5':0.4337,'4d6':0.3780,'3d6':0.3510,'3d6a':0.2182,'4d6a':0.1878,'5d6':0.0770,'5d6mg':0.0672,'7d6':0.0626,td6:0.0209,'5d6a':0.0583,pd5:0.0001,'4d7':0.00004},
+  'Emboirats':   {pd3:0.8766,pd3ps:0.8707,'3d5':0.8646,'4d5':0.8620,td5:0.8517,'3d5a':0.8381,'4d5a':0.8353,'5d5':0.8310,pd4ps:0.7843,'3d5ps':0.7759,td5ps:0.7673,'7d5':0.7214,'9d5':0.6076,'4d6':0.5631,'3d6':0.5405,'3d6a':0.4160,'4d6a':0.3829,'5d6':0.2339,'5d6mg':0.2168,'7d6':0.2085,td6:0.1129,'5d6a':0.2004,pd5:0.0045,'4d7':0.0032,'3d7':0.0005},
+  'Engrescats':  {pd3:0.8443,pd3ps:0.8316,'3d5':0.8182,'4d5':0.8127,td5:0.7896,'3d5a':0.7584,'4d5a':0.7519,'5d5':0.7420,pd4ps:0.6325,'3d5ps':0.6128,td5ps:0.5928,'7d5':0.4903,'9d5':0.2761,'4d6':0.2113,'3d6':0.1826,'3d6a':0.0700,'4d6a':0.0514,'5d6':0.0080,'5d6mg':0.0060,'7d6':0.0052},
+  'Penjats':     {pd3:0.6916,pd3ps:0.6800,'3d5':0.6682,'4d5':0.6634,td5:0.6441,'3d5a':0.6195,'4d5a':0.6145,'5d5':0.6070,pd4ps:0.5300,'3d5ps':0.5170,td5ps:0.5040,'7d5':0.4390,'9d5':0.3039,'4d6':0.2598,'3d6':0.2391,'3d6a':0.1426,'4d6a':0.1216,'5d6':0.0487,'5d6mg':0.0425,'7d6':0.0396,td6:0.0135,'5d6a':0.0369,pd5:0.0001},
+  'Descargolats':{pd3:0.7980,pd3ps:0.7870,'3d5':0.7757,'4d5':0.7711,td5:0.7521,'3d5a':0.7272,'4d5a':0.7220,'5d5':0.7143,pd4ps:0.6314,'3d5ps':0.6169,td5ps:0.6021,'7d5':0.5267,'9d5':0.3612,'4d6':0.3055,'3d6':0.2791,'3d6a':0.1568,'4d6a':0.1308,'5d6':0.0447,'5d6mg':0.0379,'7d6':0.0349,td6:0.0094,'5d6a':0.0320},
+  'Llunatics':   {pd3:0.8469,pd3ps:0.8346,'3d5':0.8217,'4d5':0.8163,td5:0.7940,'3d5a':0.7639,'4d5a':0.7576,'5d5':0.7480,pd4ps:0.6420,'3d5ps':0.6228,td5ps:0.6034,'7d5':0.5034,'9d5':0.2913,'4d6':0.2259,'3d6':0.1966,'3d6a':0.0790,'4d6a':0.0589,'5d6':0.0100,'5d6mg':0.0076,'7d6':0.0066,td6:0.0007,'5d6a':0.0057},
+  'Grillats':    {pd3:0.7978,pd3ps:0.7856,'3d5':0.7729,'4d5':0.7678,td5:0.7464,'3d5a':0.7184,'4d5a':0.7126,'5d5':0.7038,pd4ps:0.6101,'3d5ps':0.5936,td5ps:0.5770,'7d5':0.4925,'9d5':0.3128,'4d6':0.2551,'3d6':0.2285,'3d6a':0.1126,'4d6a':0.0900,'5d6':0.0238,'5d6mg':0.0194,'7d6':0.0175,td6:0.0034,'5d6a':0.0158},
+  'Gambirots':   {pd3:0.7144,pd3ps:0.4375,'3d5':0.1891,'4d5':0.1209,td5:0.0099,'3d5a':0.00008,'4d5a':0.000024,'5d5':0.000003}
+};
+
+// Jerarquia castells (menor → major)
+const CASTELLS_ORDRE = ['pd3','pd3ps','3d5','4d5','td5','3d5a','4d5a','5d5','5d5mg','5d5a','pd4ps','3d5ps','td5ps','7d5','9d5','4d6','3d6','3d6a','4d6a','5d6','5d6mg','7d6','td6','5d6a','10d6','9d6','3d6ps','4d6ps','td6ps','pd5','4d7','3d7','4d7a','7d7','pd5ps','td7f','3d7a','pd6f','10d7','7d7mg','5d7','5d7mg','5d7a','4d8f','3d8f','4d7ps','3d7ps','9d7','4d8','pd7fm','td8fm','td7sf','4d8fa','3d8fa','7d8','3d8sf','pd6sf','4d9f','3d9fm','pd8fmp'];
+const PILARS = new Set(['pd3','pd3ps','pd4ps','pd5','pd5ps','pd6f','pd7fm','pd6sf','pd8fmp']);
+const NIVELLS_NOM = ['Baix (1)','Mig-Baix (2)','Mig (3)','Mig-Alt (4)','Alt (5)'];
+// Factor multiplicador de la probabilitat per nivell (nivell 3 = neutre)
+const NIVELL_MULT = [0.65, 0.82, 1.0, 1.18, 1.35];
+
+// ─────────────────────────────────────────────
+// ESTAT GLOBAL
+// ─────────────────────────────────────────────
+let diades = [];
+let bets = []; // betslip
+let gP = { marge:0.08, nivellFactor:0.20, quotaMin:1.05, quotaMax:50 };
+let myBets = JSON.parse(localStorage.getItem('myBets')||'[]');
+let activeCollaByDiada = {}; // diadaId -> index colla activa
+let adminPwd = null;
+
+// ─────────────────────────────────────────────
+// ODDS ENGINE
+// ─────────────────────────────────────────────
+
+/** Retorna la probabilitat ajustada de que la colla faci >= castle */
+function calcProb(collaName, castle, nivell) {
+  const probs = COLLA_PROBS[collaName];
+  if (!probs) return 0.5;
+  const baseProb = probs[castle];
+  if (baseProb === undefined || baseProb === 0) return 0;
+
+  // Aplica el multiplicador de nivell (1-5, neutre = 3)
+  const idx = Math.max(0, Math.min(4, (nivell || 3) - 1));
+  let p = baseProb * NIVELL_MULT[idx];
+
+  // Clamp entre 1% i 97%
+  return Math.max(0.01, Math.min(0.97, p));
+}
+
+/** Converteix probabilitat a quota decimal aplicant el marge */
+function probToOdds(prob) {
+  if (prob <= 0) return gP.quotaMax;
+  // Quota justa = 1/p. Amb marge: reduïm la quota
+  const fair = 1 / prob;
+  const withMargin = fair * (1 - gP.marge);
+  return Math.max(gP.quotaMin, Math.min(gP.quotaMax, Math.round(withMargin * 100) / 100));
+}
+
+/**
+ * Genera automàticament castells representatius per una colla+nivell.
+ * Busca castells no-pilar amb probabilitats ajustades en rangs interessants.
+ */
+function autoCastells(collaName, nivell) {
+  const probs = COLLA_PROBS[collaName];
+  if (!probs) return [];
+
+  // Candidats: castells no pilar amb prob ajustada > 3% i < 96%
+  const candidats = CASTELLS_ORDRE.filter(c => {
+    if (PILARS.has(c)) return false;
+    const p = calcProb(collaName, c, nivell);
+    return p > 0.03 && p < 0.96;
+  });
+
+  if (candidats.length === 0) return [];
+  if (candidats.length === 1) return [candidats[0]];
+  if (candidats.length === 2) return [candidats[0], candidats[candidats.length-1]];
+
+  // Prenem el 20è, 50è i 80è percentil del rang
+  const pick = (pct) => candidats[Math.min(Math.floor(candidats.length * pct), candidats.length-1)];
+  const c1 = pick(0.20);
+  const c2 = pick(0.50);
+  const c3 = pick(0.80);
+
+  // Elimina duplicats (pot passar si hi ha pocs candidats)
+  return [...new Set([c1,c2,c3])];
+}
+
+function autoPilar(collaName, nivell) {
+  const probs = COLLA_PROBS[collaName];
+  if (!probs) return null;
+  const candidats = CASTELLS_ORDRE.filter(c => {
+    if (!PILARS.has(c)) return false;
+    const p = calcProb(collaName, c, nivell);
+    return p > 0.03 && p < 0.96;
+  });
+  if (candidats.length === 0) return null;
+  return candidats[Math.floor(candidats.length / 2)];
+}
+
+/** Retorna les opcions d'aposta (fins 3 castells + pilar) per una colla en una diada */
+function getBetOptions(diada, collaName) {
+  const collaConf = (diada.colles||[]).find(c => c.nom === collaName);
+  if (!collaConf) return [];
+
+  const nivell = collaConf.nivell || 3;
+  const castells = collaConf.castells || [];
+  const pilar = collaConf.pilar || null;
+
+  const opts = [];
+  castells.forEach((c, i) => {
+    if (!c) return;
+    const p = calcProb(collaName, c, nivell);
+    if (p <= 0) return;
+    opts.push({ type:'castell', slot:i+1, castle:c, odds:probToOdds(p), prob:p });
+  });
+  if (pilar) {
+    const p = calcProb(collaName, pilar, nivell);
+    if (p > 0) opts.push({ type:'pilar', slot:null, castle:pilar, odds:probToOdds(p), prob:p });
+  }
+  return opts;
+}
+
+// ─────────────────────────────────────────────
+// FIREBASE
+// ─────────────────────────────────────────────
+function initFirebase() {
+  const el = document.getElementById('fbStatus');
+  if (!window._firebaseReady) { el.textContent = '● Local'; return; }
+  el.textContent = '● Firebase'; el.classList.add('ok');
+
+  const { collection, onSnapshot } = window._fs;
+  onSnapshot(collection(window._db, 'diades'), snap => {
+    diades = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+    diades.sort((a,b) => (a.data||'').localeCompare(b.data||''));
+    renderDiades();
+    renderDadList();
+  });
+}
+
+async function saveDiada(data) {
+  if (!window._firebaseReady) {
+    const id = 'local_' + Date.now();
+    diades.push({ id, ...data });
+    diades.sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+    renderDiades(); renderDadList();
+    return id;
+  }
+  const { collection, addDoc, serverTimestamp } = window._fs;
+  const ref = await addDoc(collection(window._db,'diades'), { ...data, createdAt: serverTimestamp() });
+  return ref.id;
+}
+
+async function updateDiada(id, data) {
+  const idx = diades.findIndex(d => d.id === id);
+  if (idx >= 0) diades[idx] = { ...diades[idx], ...data };
+  if (!window._firebaseReady) { renderDiades(); renderDadList(); return; }
+  const { doc, updateDoc } = window._fs;
+  await updateDoc(doc(window._db,'diades',id), data);
+}
+
+async function deleteDiada(id) {
+  diades = diades.filter(d => d.id !== id);
+  renderDiades(); renderDadList();
+  if (!window._firebaseReady) return;
+  const { doc, deleteDoc } = window._fs;
+  await deleteDoc(doc(window._db,'diades',id));
+}
+
+// ─────────────────────────────────────────────
+// RENDER DIADES (PÀGINA PRINCIPAL)
+// ─────────────────────────────────────────────
+function renderDiades() {
+  const c = document.getElementById('diadesContainer');
+  if (diades.length === 0) {
+    c.innerHTML = `<div style="text-align:center;padding:60px;color:var(--text2);">
+      <div style="font-size:3rem;margin-bottom:16px;">🏰</div>
+      <div style="font-size:1.1rem;margin-bottom:8px;">Cap diada creada encara</div>
+      <div style="font-size:.85rem;">L'administrador ha de crear les primeres diades</div>
+      <button class="btn btn-gold" style="margin-top:16px;" onclick="openAdmin()">Anar a Admin</button>
+    </div>`;
+    return;
+  }
+  c.innerHTML = diades.map(d => renderDiadaCard(d)).join('');
+}
+
+function renderDiadaCard(diada) {
+  const colles = diada.colles || [];
+  if (colles.length === 0) return '';
+  const activeIdx = Math.min(activeCollaByDiada[diada.id] || 0, colles.length - 1);
+  const activeColla = colles[activeIdx];
+
+  const tabs = colles.map((c,i) => `
+    <button class="ctab ${i===activeIdx?'active':''}" onclick="selectColla('${diada.id}',${i})">${c.nom}</button>`).join('');
+
+  const opts = activeColla ? getBetOptions(diada, activeColla.nom) : [];
+  const gent = activeColla?.gent || '—';
+  const nivell = activeColla?.nivell || 3;
+  const nivellNom = NIVELLS_NOM[nivell-1] || 'Mig';
+
+  const infoBar = activeColla ? `
+    <div class="colla-info-bar">
+      <div class="colla-info-item">🎚️ Nivell diada: <strong>${nivellNom}</strong></div>
+      <div class="colla-info-item">👥 Gent prevista: <strong>${gent}</strong></div>
+    </div>` : '';
+
+  const rows = opts.map(opt => {
+    const isSel = bets.some(b => b.diadaId===diada.id && b.collaName===activeColla.nom && b.castle===opt.castle);
+    const typeCls = opt.type==='pilar' ? 'type-pilar' : 'type-castell';
+    const typeLabel = opt.type==='pilar' ? '🔵 Pilar' : `🏰 Castell ${opt.slot}`;
+    return `
+      <tr class="${isSel?'sel':''}">
+        <td><span class="type-badge ${typeCls}">${typeLabel}</span></td>
+        <td style="font-weight:600;">${opt.castle} o superior</td>
+        <td style="color:var(--text2);font-size:.8rem;">${(opt.prob*100).toFixed(1)}%</td>
+        <td>
+          <button class="odds-btn ${isSel?'sel':''}"
+            onclick="toggleBet('${diada.id}','${activeColla.nom}','${opt.type}','${opt.castle}',${opt.odds},'${diada.nom}')">
+            <span class="odds-val">${opt.odds.toFixed(2)}</span>
+            <span class="odds-lbl">${opt.type==='pilar'?'PILAR':'CASTELL'}</span>
+          </button>
+        </td>
+      </tr>`;
+  }).join('');
+
+  const emptyRow = opts.length === 0
+    ? `<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text2);">Aquesta colla no té castells configurats per a la diada</td></tr>`
+    : '';
+
+  return `
+    <div class="diada-card">
+      <div class="diada-hdr">
+        <div>
+          <div class="diada-name">${diada.nom}</div>
+          <div class="diada-date">📅 ${diada.data||''} &nbsp;·&nbsp; 📍 ${diada.lloc||''}</div>
+        </div>
+        <span class="diada-badge" style="animation:pulse 2s infinite">● EN VIU</span>
+      </div>
+      <div class="colla-section">
+        <div class="colla-tabs">${tabs}</div>
+        ${infoBar}
+        <table class="bet-table">
+          <thead><tr><th>Tipus</th><th>Aposta</th><th>Prob. base</th><th>Quota</th></tr></thead>
+          <tbody>${rows}${emptyRow}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function selectColla(diadaId, idx) {
+  activeCollaByDiada[diadaId] = idx;
+  renderDiades();
+}
+
+// ─────────────────────────────────────────────
+// BETSLIP
+// ─────────────────────────────────────────────
+function toggleBet(diadaId, collaName, betType, castle, odds, diadaNom) {
+  const idx = bets.findIndex(b => b.diadaId===diadaId && b.collaName===collaName && b.castle===castle);
+  if (idx >= 0) bets.splice(idx, 1);
+  else bets.push({ diadaId, collaName, betType, castle, odds, diadaNom });
+  renderBetslip();
+  renderDiades();
+}
+
+function renderBetslip() {
+  document.getElementById('bsCount').textContent = bets.length;
+  const body = document.getElementById('bsBody');
+  const total = document.getElementById('bsTotal');
+
+  if (bets.length === 0) {
+    body.innerHTML = '<div class="bs-empty">Selecciona quotes per apostar</div>';
+    total.style.display = 'none';
+    return;
+  }
+
+  body.innerHTML = bets.map((b,i) => `
+    <div class="bs-item">
+      <button class="bs-remove" onclick="removeBet(${i})">✕</button>
+      <div class="bs-item-title">${b.diadaNom}</div>
+      <div class="bs-item-sub">${b.collaName} — ${b.betType==='pilar'?'🔵 Pilar':'🏰 Castell'}: ${b.castle}+</div>
+      <div class="bs-item-odds">${Number(b.odds).toFixed(2)}</div>
+    </div>`).join('');
+
+  total.style.display = 'block';
+  updatePotential();
+}
+
+function removeBet(i) { bets.splice(i,1); renderBetslip(); renderDiades(); }
+function clearBetslip() { bets=[]; renderBetslip(); renderDiades(); }
+
+function updatePotential() {
+  const totalOdds = bets.reduce((acc,b) => acc * Number(b.odds), 1);
+  const stake = parseFloat(document.getElementById('stakeInput').value) || 0;
+  document.getElementById('totalOdds').textContent = totalOdds.toFixed(2);
+  document.getElementById('potentialWin').textContent = (stake * totalOdds).toFixed(2) + '€';
+}
+
+function setStake(v) { document.getElementById('stakeInput').value = v; updatePotential(); }
+
+function placeBet() {
+  if (bets.length === 0) return;
+  const stake = parseFloat(document.getElementById('stakeInput').value);
+  if (!stake || stake <= 0) { notify('Introdueix un import vàlid','err'); return; }
+  const totalOdds = bets.reduce((acc,b) => acc * Number(b.odds), 1);
+  myBets.unshift({
+    id: Date.now(), items:[...bets], stake,
+    totalOdds: totalOdds.toFixed(2),
+    potential: (stake*totalOdds).toFixed(2),
+    date: new Date().toLocaleString('ca-ES'), status:'pendent'
+  });
+  localStorage.setItem('myBets', JSON.stringify(myBets));
+  clearBetslip();
+  notify(`✅ Aposta de ${stake}€ realitzada! Quota: ${totalOdds.toFixed(2)}`);
+}
+
+// ─────────────────────────────────────────────
+// ADMIN
+// ─────────────────────────────────────────────
+function openAdmin() {
+  if (!adminPwd) {
+    const pwd = prompt('Contrasenya d\'administrador:');
+    if (!pwd || pwd !== 'admin123') { alert('Contrasenya incorrecta'); return; }
+    adminPwd = pwd;
+  }
+  document.getElementById('adminModal').style.display = 'block';
+  renderCcGrid();
+  renderDadList();
+}
+
+function closeAdmin() { document.getElementById('adminModal').style.display = 'none'; }
+
+function switchTab(name, btn) {
+  document.querySelectorAll('.atab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.apanel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('apanel-' + name).classList.add('active');
+  if (name === 'diades') renderDadList();
+}
+
+// ── Crear diada
+function renderCcGrid() {
+  document.getElementById('ccGrid').innerHTML = COLLES.map(c => `
+    <div>
+      <input class="cc-input" type="checkbox" id="cc_${c}" value="${c}" onchange="renderCollesConfig()">
+      <label class="cc-lbl" for="cc_${c}">${c}</label>
+    </div>`).join('');
+}
+
+function renderCollesConfig() {
+  const sel = [...document.querySelectorAll('.cc-input:checked')].map(c => c.value);
+  const container = document.getElementById('collesConfig');
+  if (sel.length === 0) { container.innerHTML = ''; return; }
+
+  container.innerHTML = `
+    <div style="font-size:.85rem;color:var(--text2);margin-bottom:10px;">Configura cada colla per a aquesta diada:</div>
+    <div class="colla-cfg-list">
+      ${sel.map(c => {
+        const castOpts = CASTELLS_ORDRE.filter(x => !PILARS.has(x) && (COLLA_PROBS[c]?.[x]||0) > 0);
+        const pilarOpts = CASTELLS_ORDRE.filter(x => PILARS.has(x) && (COLLA_PROBS[c]?.[x]||0) > 0);
+        const castSel = (n) => castOpts.map(x => `<option value="${x}">${x}</option>`).join('');
+        const pilarSel = pilarOpts.map(x => `<option value="${x}">${x}</option>`).join('');
+        return `
+          <div class="colla-cfg-item">
+            <div class="colla-cfg-top">
+              <div class="colla-cfg-name">🏰 ${c}</div>
+              <div style="display:flex;align-items:center;gap:6px;font-size:.82rem;color:var(--text2);">
+                Nivell:
+                <select class="lsel" id="niv_${c}" onchange="autoFillCastells('${c}')">
+                  ${NIVELLS_NOM.map((n,i) => `<option value="${i+1}" ${i===2?'selected':''}>${n}</option>`).join('')}
+                </select>
+              </div>
+            </div>
+            <div class="colla-cfg-row">
+              <div class="colla-cfg-field">
+                <label>Castell 1 (mínim)</label>
+                <select id="c1_${c}"><option value="">— cap —</option>${castSel()}</select>
+              </div>
+              <div class="colla-cfg-field">
+                <label>Castell 2 (mínim)</label>
+                <select id="c2_${c}"><option value="">— cap —</option>${castSel()}</select>
+              </div>
+              <div class="colla-cfg-field">
+                <label>Castell 3 (mínim)</label>
+                <select id="c3_${c}"><option value="">— cap —</option>${castSel()}</select>
+              </div>
+              <div class="colla-cfg-field">
+                <label>Pilar (mínim)</label>
+                <select id="pil_${c}"><option value="">— cap —</option>${pilarSel}</select>
+              </div>
+            </div>
+            <div style="margin-top:10px;display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--text2);">
+              👥 Gent prevista:
+              <input type="number" class="gent-input" id="gent_${c}" placeholder="Ex: 800" min="0" max="10000" style="width:100px;">
+              <span style="font-size:.75rem;color:var(--text2);">(informatiu, no afecta quotes)</span>
+            </div>
+          </div>`;
+      }).join('')}
+    </div>`;
+
+  // Auto-omple castells per defecte amb els valors calculats
+  sel.forEach(c => autoFillCastells(c));
+}
+
+function autoFillCastells(collaName) {
+  const nivell = parseInt(document.getElementById('niv_' + collaName)?.value || 3);
+  const castells = autoCastells(collaName, nivell);
+  const pilar = autoPilar(collaName, nivell);
+
+  const setVal = (id, val) => {
+    const el = document.getElementById(id);
+    if (!el || !val) return;
+    // Intenta seleccionar l'opció
+    for (let opt of el.options) { if (opt.value === val) { el.value = val; return; } }
+  };
+
+  setVal('c1_' + collaName, castells[0] || '');
+  setVal('c2_' + collaName, castells[1] || '');
+  setVal('c3_' + collaName, castells[2] || '');
+  setVal('pil_' + collaName, pilar || '');
+}
+
+async function crearDiada() {
+  const nom = document.getElementById('fNom').value.trim();
+  const data = document.getElementById('fData').value;
+  const lloc = document.getElementById('fLloc').value.trim();
+
+  if (!nom) { notify('Introdueix un nom per la diada','err'); return; }
+
+  const sel = [...document.querySelectorAll('.cc-input:checked')].map(c => c.value);
+  if (sel.length === 0) { notify('Selecciona almenys una colla','err'); return; }
+
+  const colles = sel.map(c => {
+    const nivell = parseInt(document.getElementById('niv_' + c)?.value || 3);
+    const get = id => document.getElementById(id)?.value || '';
+    return {
+      nom: c,
+      nivell,
+      castells: [get('c1_'+c), get('c2_'+c), get('c3_'+c)].filter(Boolean),
+      pilar: get('pil_'+c) || null,
+      gent: parseInt(document.getElementById('gent_'+c)?.value) || null
+    };
+  });
+
+  const btn = event.target;
+  btn.disabled = true; btn.textContent = 'Creant...';
+
+  try {
+    await saveDiada({ nom, data, lloc, colles, activa:true });
+    // Reset form
+    document.getElementById('fNom').value = '';
+    document.getElementById('fData').value = '';
+    document.getElementById('fLloc').value = '';
+    document.querySelectorAll('.cc-input').forEach(c => c.checked = false);
+    document.getElementById('collesConfig').innerHTML = '';
+    notify('✅ Diada creada correctament!');
+  } catch(e) {
+    notify('Error creant la diada: ' + e.message, 'err');
+  } finally {
+    btn.disabled = false; btn.textContent = '✅ Crear Diada';
+  }
+}
+
+// ── Gestionar diades
+function renderDadList() {
+  const c = document.getElementById('dadList');
+  if (!c) return;
+  if (diades.length === 0) {
+    c.innerHTML = '<div style="color:var(--text2);text-align:center;padding:30px;">Cap diada creada</div>';
+    return;
+  }
+  c.innerHTML = `<div class="dad-list">${diades.map(d => `
+    <div class="dad-item">
+      <div class="dad-info">
+        <div class="dad-name">${d.nom}</div>
+        <div class="dad-meta">📅 ${d.data||'—'} · 📍 ${d.lloc||'—'} · ${(d.colles||[]).length} colles</div>
+        <div class="dad-meta" style="margin-top:4px;">
+          ${(d.colles||[]).map(c => `<span style="margin-right:8px;">• ${c.nom} <em style="color:var(--accent);">(Niv.${c.nivell||3}${c.gent?', '+c.gent+'p':''})</em></span>`).join('')}
+        </div>
+      </div>
+      <div class="dad-actions">
+        <button class="btn btn-outline btn-sm" onclick="openEdit('${d.id}')">✏️</button>
+        <button class="btn btn-red btn-sm" onclick="confirmDel('${d.id}','${d.nom.replace(/'/g,"\\'")}')">🗑️</button>
+      </div>
+    </div>`).join('')}</div>`;
+}
+
+// ── Editar diada
+function openEdit(id) {
+  const diada = diades.find(d => d.id === id);
+  if (!diada) return;
+
+  const castOpts = (collaName, excl) => CASTELLS_ORDRE
+    .filter(c => !PILARS.has(c) && (COLLA_PROBS[collaName]?.[c]||0) > 0)
+    .map(c => `<option value="${c}" ${excl===c?'selected':''}>${c}</option>`).join('');
+  const pilarOpts = (collaName, excl) => CASTELLS_ORDRE
+    .filter(c => PILARS.has(c) && (COLLA_PROBS[collaName]?.[c]||0) > 0)
+    .map(c => `<option value="${c}" ${excl===c?'selected':''}>${c}</option>`).join('');
+
+  document.getElementById('editBody').innerHTML = `
+    <div class="frow2 fg">
+      <div><label class="fl">Nom</label><input class="fi" id="eNom" value="${diada.nom}"></div>
+      <div><label class="fl">Data</label><input class="fi" type="date" id="eData" value="${diada.data||''}"></div>
+    </div>
+    <div class="fg"><label class="fl">Lloc</label><input class="fi" id="eLloc" value="${diada.lloc||''}"></div>
+
+    <div style="font-size:.85rem;color:var(--text2);margin-bottom:10px;">Configuració de colles:</div>
+    <div class="colla-cfg-list">
+      ${(diada.colles||[]).map(c => `
+        <div class="colla-cfg-item">
+          <div class="colla-cfg-top">
+            <div class="colla-cfg-name">🏰 ${c.nom}</div>
+            <div style="display:flex;align-items:center;gap:6px;font-size:.82rem;color:var(--text2);">
+              Nivell:
+              <select class="lsel" id="eniv_${c.nom}">
+                ${NIVELLS_NOM.map((n,i) => `<option value="${i+1}" ${(c.nivell||3)===(i+1)?'selected':''}>${n}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+          <div class="colla-cfg-row">
+            <div class="colla-cfg-field"><label>Castell 1</label>
+              <select id="ec1_${c.nom}"><option value="">— cap —</option>${castOpts(c.nom, c.castells?.[0])}</select></div>
+            <div class="colla-cfg-field"><label>Castell 2</label>
+              <select id="ec2_${c.nom}"><option value="">— cap —</option>${castOpts(c.nom, c.castells?.[1])}</select></div>
+            <div class="colla-cfg-field"><label>Castell 3</label>
+              <select id="ec3_${c.nom}"><option value="">— cap —</option>${castOpts(c.nom, c.castells?.[2])}</select></div>
+            <div class="colla-cfg-field"><label>Pilar</label>
+              <select id="epil_${c.nom}"><option value="">— cap —</option>${pilarOpts(c.nom, c.pilar)}</select></div>
+          </div>
+          <div style="margin-top:10px;display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--text2);">
+            👥 Gent prevista:
+            <input type="number" class="gent-input" id="egent_${c.nom}" value="${c.gent||''}" placeholder="Ex: 800" min="0" style="width:100px;">
+          </div>
+        </div>`).join('')}
+    </div>
+    <div style="display:flex;gap:10px;margin-top:20px;">
+      <button class="btn btn-green" style="padding:10px 24px;" onclick="saveEdit('${id}')">💾 Guardar canvis</button>
+      <button class="btn btn-outline" onclick="closeEdit()">Cancel·lar</button>
+    </div>`;
+
+  document.getElementById('editModal').style.display = 'block';
+}
+
+function closeEdit() { document.getElementById('editModal').style.display = 'none'; }
+
+async function saveEdit(id) {
+  const diada = diades.find(d => d.id === id);
+  if (!diada) return;
+
+  const nom = document.getElementById('eNom').value.trim() || diada.nom;
+  const data = document.getElementById('eData').value || diada.data;
+  const lloc = document.getElementById('eLloc').value.trim() || diada.lloc;
+
+  const colles = (diada.colles||[]).map(c => {
+    const get = id => document.getElementById(id)?.value || '';
+    return {
+      ...c,
+      nivell: parseInt(document.getElementById('eniv_'+c.nom)?.value || c.nivell || 3),
+      castells: [get('ec1_'+c.nom), get('ec2_'+c.nom), get('ec3_'+c.nom)].filter(Boolean),
+      pilar: get('epil_'+c.nom) || null,
+      gent: parseInt(document.getElementById('egent_'+c.nom)?.value) || null
+    };
+  });
+
+  await updateDiada(id, { nom, data, lloc, colles });
+  closeEdit();
+  notify('✅ Diada actualitzada!');
+}
+
+async function confirmDel(id, nom) {
+  if (!confirm(`Eliminar "${nom}"?`)) return;
+  await deleteDiada(id);
+  notify('Diada eliminada');
+}
+
+// ─────────────────────────────────────────────
+// MY BETS
+// ─────────────────────────────────────────────
+function showMyBets() {
+  document.getElementById('myBetsModal').style.display = 'block';
+  const body = document.getElementById('myBetsBody');
+  if (myBets.length === 0) {
+    body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text2);">Cap aposta realitzada</div>';
+    return;
+  }
+  body.innerHTML = myBets.map(b => `
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:14px;margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+        <div style="font-size:.8rem;color:var(--text2);">📅 ${b.date}</div>
+        <div style="font-family:'Bebas Neue',sans-serif;color:var(--accent);font-size:1.2rem;">×${b.totalOdds}</div>
+      </div>
+      ${b.items.map(it => `
+        <div style="font-size:.85rem;margin-bottom:4px;">
+          <span style="color:var(--text2);">${it.diadaNom} · ${it.collaName}</span> —
+          ${it.betType==='pilar'?'🔵 Pilar':'🏰 Castell'}: <strong>${it.castle}+</strong>
+          <span style="color:var(--accent);margin-left:6px;">${Number(it.odds).toFixed(2)}</span>
+        </div>`).join('')}
+      <div style="display:flex;justify-content:space-between;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+        <div>Import: <strong>${b.stake}€</strong></div>
+        <div style="color:var(--green);">Guany potencial: <strong>${b.potential}€</strong></div>
+      </div>
+    </div>`).join('');
+}
+
+// ─────────────────────────────────────────────
+// UTILS
+// ─────────────────────────────────────────────
+function notify(msg, type='ok') {
+  const el = document.getElementById('notif');
+  el.textContent = msg;
+  el.className = 'notif' + (type==='err' ? ' err' : '');
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3500);
+}
+
+function saveParams() { localStorage.setItem('gP', JSON.stringify(gP)); }
+
+// Tanca modals amb Escape o click fora
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  ['adminModal','editModal','myBetsModal'].forEach(id => document.getElementById(id).style.display='none');
+});
+['adminModal','editModal','myBetsModal'].forEach(id => {
+  document.getElementById(id).addEventListener('click', e => {
+    if (e.target.id === id) document.getElementById(id).style.display = 'none';
+  });
+});
+
+// ─────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────
+const savedP = localStorage.getItem('gP');
+if (savedP) { try { gP = {...gP, ...JSON.parse(savedP)}; } catch(e){} }
+
+// Espera que el mòdul Firebase acabi de carregar
+setTimeout(() => {
+  initFirebase();
+  if (diades.length === 0) renderDiades();
+}, 600);
+</script>
+</body>
+</html>
